@@ -1,0 +1,16 @@
+{
+  "name": "自治体窓口ナビ",
+  "short_name": "窓口ナビ",
+  "description": "窓口業務の判定・案内サポートツール",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#007bff",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

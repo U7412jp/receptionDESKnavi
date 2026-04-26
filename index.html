@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>窓口受付ナビ</title>
+    <!-- PWA: Manifest Link -->
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Noto+Sans+JP:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f1f5f9;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-card {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-card:active {
+            transform: scale(0.96);
+        }
+
+        .progress-bar {
+            transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .bg-red-gradient { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); }
+        .bg-orange-gradient { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes alertPop {
+            0% { transform: scale(0.9); opacity: 0; }
+            70% { transform: scale(1.02); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-result { animation: fadeInScale 0.4s ease-out forwards; }
+        .animate-alert { animation: alertPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4 pb-12">
+
+    <!-- Header -->
+    <header class="w-full max-w-md bg-white rounded-3xl shadow-sm p-6 mb-4 border border-slate-200">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-black text-slate-800 tracking-tighter">窓口受付ナビ</h1>
+                <p class="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">実務特化・高精度版</p>
+            </div>
+        </div>
+        
+        <!-- Progress Bar (Visible during assessment) -->
+        <div id="progress-area" class="mt-6 hidden">
+            <div class="flex justify-between text-[10px] text-slate-400 mb-2 font-black uppercase">
+                <span id="breadcrumb-text">Category</span>
+                <span id="step-label">Step 1</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div id="progress-fill" class="bg-blue-600 h-full progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-md flex-grow flex flex-col gap-4">
+        
+        <div id="content-card" class="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 p-7 min-h-[400px] flex flex-col relative transition-all duration-300 border border-slate-100">
+            
+            <!-- Category Tag -->
+            <div id="context-header" class="mb-3 hidden">
+                <span id="service-name-tag" class="text-xs font-black bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-100"></span>
+            </div>
+
+            <!-- Content Area (Question or Result) -->
+            <div id="dynamic-content" class="flex flex-col flex-grow">
+                <h2 id="main-text" class="text-2xl font-black text-slate-800 mb-6 leading-tight">
+                    窓口業務を選択してください
+                </h2>
+                <div id="ui-container" class="flex flex-col gap-3.5"></div>
+            </div>
+
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div id="nav-footer" class="hidden mt-2">
+            <div class="grid grid-cols-2 gap-3 w-full">
+                <button onclick="handleBack()" id="btn-back" class="bg-white border-2 border-slate-200 text-slate-600 font-black py-4 rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    1つ戻る
+                </button>
+                <button onclick="showTopMenu()" class="bg-slate-800 text-white font-black py-4 rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center">
+                    トップに戻る
+                </button>
+            </div>
+        </div>
+
+        <!-- Identity Document Reference (ALWAYS VISIBLE) -->
+        <div id="id-doc-info" class="w-full mt-auto pt-4">
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
+                <span class="font-black text-slate-800 block mb-4 text-sm flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>
+                    本人確認書類の区分一覧
+                </span>
+                <div class="mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <span class="font-black text-blue-700 text-xs block mb-1">A書類（1点で可）</span>
+                    <span class="text-slate-600 text-[11px] leading-relaxed font-medium">運転免許証、マイナンバーカード、パスポート、在留カード等の顔写真付き公的身分証</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <span class="font-black text-blue-700 text-xs block mb-1">B書類（2点必要）</span>
+                    <span class="text-slate-600 text-[11px] leading-relaxed font-medium">健康保険証、年金手帳（証書）、介護保険証、社員証、学生証等</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // ■ 4つの独立したロジック (JSONデータ)
+        // ==========================================
+
+        const logicJuminhyo = {
+            id: "juminhyo",
+            title: "住民票の写し",
+            logic: {
+                startNode: "q_j_who",
+                nodes: {
+                    "q_j_who": {
+                        "text": "誰の住民票が必要ですか？",
+                        "options": [
+                            { "label": "本人・同一世帯員", "next": "q_j_type" },
+                            { "label": "別世帯の代理人（委任状あり）", "next": "q_j_proxy_type" },
+                            { "label": "第三者（権利行使・利害関係）", "next": "q_j_third_party" }
+                        ]
+                    },
+                    "q_j_type": {
+                        "text": "必要なのは現在の住民票ですか？",
+                        "options": [
+                            { "label": "現在の住民票", "next": "q_j_flags" },
+                            { "label": "除票（転出・死亡者）", "next": "q_j_johyo_check" }
+                        ]
+                    },
+                    "q_j_johyo_check": {
+                        "text": "除票の請求者は？",
+                        "options": [
+                            { "label": "本人（死亡者の場合は相続人等）", "next": "q_j_id" },
+                            { "label": "その他（正当な理由必須）", "next": "q_j_third_party" }
+                        ]
+                    },
+                    "q_j_proxy_type": {
+                        "text": "マイナンバー（個人番号）の記載が必要ですか？",
+                        "options": [
+                            { "label": "不要（通常の住民票）", "next": "q_j_flags" },
+                            { "label": "必要（任意代理人による請求）", "result": "res_j_proxy_mynumber" },
+                            { "label": "必要（法定代理人：親権者・後見人等）", "next": "q_j_id" }
+                        ]
+                    },
+                    "q_j_flags": {
+                        "text": "記載が必要な項目を選んでください",
+                        "options": [
+                            { "label": "本籍・続柄・マイナンバー等はすべて不要", "next": "q_j_id" },
+                            { "label": "本籍・続柄等の記載が必要", "next": "q_j_id" }
+                        ]
+                    },
+                    "q_j_third_party": {
+                        "text": "正当な理由を証明する疎明資料（契約書、戸籍謄本等）はありますか？",
+                        "options": [
+                            { "label": "あり（本籍・続柄は原則省略）", "next": "q_j_id" },
+                            { "label": "なし", "result": "res_j_err_third" }
+                        ]
+                    },
+                    "q_j_id": {
+                        "text": "本人確認書類はありますか？",
+                        "options": [
+                            { "label": "A書類（免許証・マイナカード等）1点", "result": "res_j_ok" },
+                            { "label": "B書類（保険証・年金手帳等）2点", "result": "res_j_ok" },
+                            { "label": "なし", "result": "res_j_err_id" }
+                        ]
+                    }
+                },
+                "results": {
+                    "res_j_ok": {
+                        "title": "交付可能",
+                        "color": "green",
+                        "alert": "※除票の場合、データ化前の古い記録は本庁での発行が必要な場合があります。",
+                        "message": "請求書に記載事項（本籍・続柄等）の有無を正しく記入してもらってください。第三者請求の場合は、原則として本籍・続柄は省略となります。"
+                    },
+                    "res_j_proxy_mynumber": {
+                        "title": "代理人への直接交付不可",
+                        "color": "orange",
+                        "alert": "【重要】任意代理人にはマイナンバー入り住民票を直接手渡しできません。",
+                        "message": "本人の住民登録地へ「転送不要郵便」で直接郵送します。窓口では、切手代（郵便料）と封筒を用意してもらい、受付のみ行ってください。"
+                    },
+                    "res_j_err_third": {
+                        "title": "受付不可",
+                        "color": "red",
+                        "message": "第三者請求には、自己の権利行使や義務履行のために必要であることを証明する資料（原本）が必須です。"
+                    },
+                    "res_j_err_id": {
+                        "title": "受付不可",
+                        "color": "red",
+                        "message": "本人確認書類が不足しています。A書類1点またはB書類2点が必要です。"
+                    }
+                }
+            }
+        };
+
+        const logicKoseki = {
+            id: "koseki",
+            title: "戸籍証明書",
+            logic: {
+                startNode: "q_k_who",
+                nodes: {
+                    "q_k_who": {
+                        "text": "誰の戸籍が必要ですか？",
+                        "options": [
+                            { "label": "本人・配偶者・直系（父母・子・孫）", "next": "q_k_where" },
+                            { "label": "兄弟姉妹（同じ戸籍にいる方）", "next": "q_k_where" },
+                            { "label": "兄弟姉妹（結婚等で別戸籍の方）", "result": "res_k_proxy_needed" },
+                            { "label": "第三者・代理人（上記以外）", "next": "q_k_third_party" }
+                        ]
+                    },
+                    "q_k_where": {
+                        "text": "どちらの窓口で請求しますか？",
+                        "options": [
+                            { "label": "当市の窓口（本籍地）", "next": "q_k_type_local" },
+                            { "label": "最寄りの他市町村（広域交付）", "next": "q_k_type_kouiki" }
+                        ]
+                    },
+                    "q_k_type_local": {
+                        "text": "必要な書類の種類は何ですか？",
+                        "options": [
+                            { "label": "全部事項（謄本）・除籍・原戸籍", "next": "q_k_id_local" },
+                            { "label": "個人事項（抄本）・附票・身分証・独身証", "next": "q_k_id_local" }
+                        ]
+                    },
+                    "q_k_type_kouiki": {
+                        "text": "必要な書類の種類は何ですか？（広域交付）",
+                        "options": [
+                            { "label": "全部事項（謄本）・除籍・原戸籍のみ", "next": "q_k_id_kouiki" },
+                            { "label": "抄本・附票・身分証・独身証を希望", "result": "res_k_err_kouiki_type" }
+                        ]
+                    },
+                    "q_k_id_kouiki": {
+                        "text": "顔写真付きの本人確認書類（A書類）はありますか？",
+                        "options": [
+                            { "label": "あり（免許証・マイナカード等）", "result": "res_k_ok_kouiki" },
+                            { "label": "なし（保険証等のみ）", "result": "res_k_err_kouiki_id" }
+                        ]
+                    },
+                    "q_k_id_local": {
+                        "text": "本人確認書類はありますか？",
+                        "options": [
+                            { "label": "A書類1点 または B書類2点あり", "result": "res_k_ok_local" },
+                            { "label": "なし", "result": "res_k_err_id" }
+                        ]
+                    },
+                    "q_k_third_party": {
+                        "text": "委任状、または正当な理由（相続等）を証明する資料はありますか？",
+                        "options": [
+                            { "label": "あり（※広域交付は不可）", "next": "q_k_id_local" },
+                            { "label": "なし", "result": "res_k_err_third" }
+                        ]
+                    }
+                },
+                "results": {
+                    "res_k_ok_local": {
+                        "title": "交付可能",
+                        "color": "green",
+                        "alert": "【重要】①相続等で「出生から死亡まで」の連続請求は調査・確認にかなりの時間を要すため、混雑時は１時間以上の待ち時間が発生することもあります。②身分証明書は、記録（破産・後見・犯歴等）の確認状況により、即日交付できない場合があります。",
+                        "message": "本籍地窓口のため、全ての戸籍関連証明書（附票・身分証等含む）が発行可能です。"
+                    },
+                    "res_k_ok_kouiki": {
+                        "title": "広域交付可能",
+                        "color": "green",
+                        "alert": "広域交付はシステム照会に時間がかかるため、通常の交付より待ち時間が長くなります。",
+                        "message": "顔写真付きID（A書類）による本人確認が必要です。発行できるのは「謄本（全部事項）」のみです。"
+                    },
+                    "res_k_proxy_needed": {
+                        "title": "委任状が必要です",
+                        "color": "orange",
+                        "message": "別戸籍の兄弟姉妹は「直系」ではないため、原則として委任状、または正当な理由（相続資料等）が必要です。"
+                    },
+                    "res_k_err_kouiki_type": {
+                        "title": "広域交付対象外",
+                        "color": "red",
+                        "message": "個人事項証明（抄本）、戸籍附票、身分証明書、独身証明書は広域交付できません。本籍地の自治体へ直接または郵送で請求するよう案内してください。"
+                    },
+                    "res_k_err_kouiki_id": {
+                        "title": "広域交付不可",
+                        "color": "red",
+                        "message": "広域交付には顔写真付きの本人確認書類（A書類）が法律で義務付けられています。A書類がない場合は本籍地へ請求してください。"
+                    },
+                    "res_k_err_third": {
+                        "title": "受付不可",
+                        "color": "red",
+                        "message": "第三者請求には、権利行使を証明する資料または委任状が必要です。また、広域交付は利用できません。"
+                    },
+                    "res_k_err_id": {
+                        "title": "受付不可",
+                        "color": "red",
+                        "message": "適切な本人確認書類（A1点またはB2点）が提示されない場合、交付はできません。"
+                    }
+                }
+            }
+        };
+
+        const logicMynaInkan = {
+            id: "mynumber_inkan",
+            title: "印鑑登録・マイナンバーカード",
+            logic: {
+                startNode: "q_mi_menu",
+                nodes: {
+                    "q_mi_menu": {
+                        "text": "どちらの手続きですか？",
+                        "options": [
+                            { "label": "印鑑登録（新規・改印）", "next": "q_i_who" },
+                            { "label": "マイナンバーカードの受取（交付）", "next": "q_m_who" }
+                        ]
+                    },
+                    "q_i_who": {
+                        "text": "どなたが来庁されていますか？",
+                        "options": [
+                            { "label": "本人が来庁", "next": "q_i_id" },
+                            { "label": "代理人が来庁（委任状あり）", "result": "res_i_post" }
+                        ]
+                    },
+                    "q_i_id": {
+                        "text": "本人確認書類と保証人の有無を確認します",
+                        "options": [
+                            { "label": "A書類（写真付き）1点あり", "result": "res_i_ok" },
+                            { "label": "保証人（市内登録者）が同行し、実印を押印できる", "result": "res_i_ok" },
+                            { "label": "B書類のみ、または保証人不在", "result": "res_i_post" }
+                        ]
+                    },
+                    "q_m_who": {
+                        "text": "どなたが来庁されていますか？",
+                        "options": [
+                            { "label": "本人が来庁（15歳未満は法定代理人同行）", "next": "q_m_id_honnin" },
+                            { "label": "代理人のみ（本人が来られない）", "next": "q_m_proxy_reason" }
+                        ]
+                    },
+                    "q_m_proxy_reason": {
+                        "text": "本人が来られない「やむを得ない理由」を選択（R5緩和対応）",
+                        "options": [
+                            { "label": "病気・障害・施設入所・75歳以上", "next": "q_m_proxy_id" },
+                            { "label": "未就学児・小中高生・妊婦", "next": "q_m_proxy_id" },
+                            { "label": "海外留学・長期出張・拘禁", "next": "q_m_proxy_id" },
+                            { "label": "仕事が忙しい・学校の授業がある", "result": "res_m_err_reason" }
+                        ]
+                    },
+                    "q_m_id_honnin": {
+                        "text": "本人の確認書類（A1点 または B2点）はありますか？",
+                        "options": [
+                            { "label": "あり", "result": "res_m_ok" },
+                            { "label": "なし", "result": "res_m_err_id" }
+                        ]
+                    },
+                    "q_m_proxy_id": {
+                        "text": "本人と代理人、双方のID（写真付必須）はありますか？",
+                        "options": [
+                            { "label": "本人A1点+代理人A1点+B1点など規定通りある", "result": "res_m_proxy_ok" },
+                            { "label": "本人の写真付きIDが一切ない", "result": "res_m_proxy_limit" }
+                        ]
+                    }
+                },
+                "results": {
+                    "res_i_ok": {
+                        "title": "即日登録可能",
+                        "color": "green",
+                        "message": "登録完了後、印鑑登録証（カード）をその場で交付し、印鑑証明書の発行も可能になります。"
+                    },
+                    "res_i_post": {
+                        "title": "即日不可（郵送照会）",
+                        "color": "orange",
+                        "alert": "本人によるA書類提示がない場合、または代理人請求の場合は、即日登録できません。",
+                        "message": "本人宅へ「照会回答書」を郵送します。数日後、回答書とIDを再度持参して完了となります。"
+                    },
+                    "res_m_ok": {
+                        "title": "交付可能",
+                        "color": "green",
+                        "message": "暗証番号の設定後、カードを交付します。通知カード・住基カード（所持者のみ）を回収します。"
+                    },
+                    "res_m_proxy_ok": {
+                        "title": "代理交付可能",
+                        "color": "green",
+                        "alert": "【重要】学生は学生証+顔写真証明、妊婦は母子手帳、高齢者は介護保険証等の「理由の疎明資料」が必須です。",
+                        "message": "書類の組み合わせが非常に複雑なため、最終的な判定は必ず本庁担当担当課へ確認してください。"
+                    },
+                    "res_m_proxy_limit": {
+                        "title": "代理交付不可（原則）",
+                        "color": "red",
+                        "message": "代理交付には、本人の顔写真付きID（A書類、または所定の顔写真証明書）が必須です。本庁へ相談してください。"
+                    },
+                    "res_m_err_reason": {
+                        "title": "受付不可",
+                        "color": "red",
+                        "message": "仕事・学業の多忙は「やむを得ない理由」に該当しません。本人の来庁が必要です。"
+                    },
+                    "res_m_err_id": {
+                        "title": "受付不可",
+                        "color": "red",
+                        "message": "本人確認書類が不足しています。再来庁を案内してください。"
+                    }
+                }
+            }
+        };
+
+        const logicTax = {
+            id: "tax",
+            title: "税関係証明書",
+            logic: {
+                startNode: "q_t_who",
+                nodes: {
+                    "q_t_who": {
+                        "text": "どなたの証明が必要ですか？",
+                        "options": [
+                            { "label": "本人", "next": "q_t_shinkoku" },
+                            { "label": "同一世帯の親族（※市内居住）", "next": "q_t_shinkoku" },
+                            { "label": "別世帯、または市外居住の親族・代理人", "next": "q_t_proxy" }
+                        ]
+                    },
+                    "q_t_proxy": {
+                        "text": "委任状（原本）はありますか？",
+                        "options": [
+                            { "label": "あり", "next": "q_t_shinkoku" },
+                            { "label": "なし", "result": "res_t_err_proxy" }
+                        ]
+                    },
+                    "q_t_shinkoku": {
+                        "text": "必要な年度の所得申告（確定申告、市県民税申告）はお済みですか？",
+                        "options": [
+                            { "label": "済んでいる（給与天引き、扶養内含む）", "next": "q_t_id" },
+                            { "label": "未申告（収入ゼロで申告していない場合も含む）", "result": "res_t_err_shinkoku" }
+                        ]
+                    },
+                    "q_t_id": {
+                        "text": "本人確認書類を確認します",
+                        "options": [
+                            { "label": "A1点 または B2点あり", "result": "res_t_ok" },
+                            { "label": "なし", "result": "res_t_err_id" }
+                        ]
+                    }
+                },
+                "results": {
+                    "res_t_ok": {
+                        "title": "発行可能",
+                        "color": "green",
+                        "message": "窓口で即日交付可能です。年度、通数、使用目的を確認してください。"
+                    },
+                    "res_t_err_shinkoku": {
+                        "title": "先に申告が必要です",
+                        "color": "orange",
+                        "alert": "収入がゼロの方や扶養に入っていない方で、申告がない場合は証明書が発行できません。",
+                        "message": "まずは税務課（または申告会場）で申告手続きを行うよう案内してください。申告後、発行可能になります。"
+                    },
+                    "res_t_err_proxy": {
+                        "title": "委任状が必要です",
+                        "color": "red",
+                        "alert": "【注意】同一世帯でも、住民票上の住所が市外にある場合は委任状が必要です。",
+                        "message": "税証明は地方税法上の秘密保持が厳格なため、委任状がない限り家族でも交付できません。"
+                    },
+                    "res_t_err_id": {
+                        "title": "受付不可",
+                        "color": "red",
+                        "message": "有効な本人確認書類が提示されないため、受付できません。"
+                    }
+                }
+            }
+        };
+
+        const SERVICES = {
+            "juminhyo": logicJuminhyo,
+            "koseki": logicKoseki,
+            "myna_inkan": logicMynaInkan,
+            "tax": logicTax
+        };
+
+        // ==========================================
+        // ■ アプリケーション状態管理
+        // ==========================================
+
+        let currentKey = "";
+        let currentData = null;
+        let currentNode = "";
+        let stateHistory = []; // {nodeId, label}
+
+        const ui = {
+            card: document.getElementById('content-card'),
+            dynamicContent: document.getElementById('dynamic-content'),
+            progressArea: document.getElementById('progress-area'),
+            progressBar: document.getElementById('progress-fill'),
+            stepLabel: document.getElementById('step-label'),
+            breadcrumb: document.getElementById('breadcrumb-text'),
+            navFooter: document.getElementById('nav-footer'),
+            btnBack: document.getElementById('btn-back'),
+            serviceTag: document.getElementById('service-name-tag'),
+            contextHeader: document.getElementById('context-header')
+        };
+
+        // UI初期化・リセット
+        function resetCardStyle() {
+            ui.card.className = "bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 p-7 min-h-[400px] flex flex-col relative transition-all duration-300 border border-slate-100";
+        }
+
+        // トップメニュー表示
+        function showTopMenu() {
+            currentKey = ""; currentData = null; stateHistory = []; currentNode = "";
+            
+            resetCardStyle();
+            ui.progressArea.classList.add('hidden');
+            ui.navFooter.classList.add('hidden');
+            ui.contextHeader.classList.add('hidden');
+
+            ui.dynamicContent.innerHTML = `
+                <h2 class="text-2xl font-black text-slate-800 mb-6 leading-tight">窓口業務を選択してください</h2>
+                <div id="ui-container" class="flex flex-col gap-3.5"></div>
+            `;
+            const uiContainer = document.getElementById('ui-container');
+
+            Object.keys(SERVICES).forEach(key => {
+                const s = SERVICES[key];
+                const btn = document.createElement('button');
+                btn.className = "btn-card w-full bg-slate-50 border border-slate-100 p-6 rounded-2xl flex items-center justify-between group hover:bg-blue-50 hover:border-blue-200 transition-all";
+                btn.innerHTML = `
+                    <div class="text-left">
+                        <span class="block text-[10px] font-black text-slate-400 group-hover:text-blue-400 uppercase tracking-widest mb-1 transition-colors">Category</span>
+                        <span class="text-lg font-black text-slate-700">${s.title}</span>
+                    </div>
+                    <div class="bg-white p-2.5 rounded-xl shadow-sm text-blue-500 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 7l5 5-5 5M6 7l5 5-5 5"></path></svg>
+                    </div>
+                `;
+                btn.onclick = () => startService(key);
+                uiContainer.appendChild(btn);
+            });
+        }
+
+        // サービス開始
+        function startService(key) {
+            currentKey = key;
+            currentData = SERVICES[key];
+            currentNode = currentData.logic.startNode;
+            
+            resetCardStyle();
+            ui.progressArea.classList.remove('hidden');
+            ui.navFooter.classList.remove('hidden');
+            ui.btnBack.style.display = 'none'; // 最初の質問では「戻る」を隠す
+            ui.contextHeader.classList.remove('hidden');
+            ui.serviceTag.innerText = currentData.title;
+            
+            renderNode();
+        }
+
+        // 戻るアクション
+        function handleBack() {
+            if (stateHistory.length === 0) return;
+            const prev = stateHistory.pop();
+            currentNode = prev.nodeId;
+            
+            resetCardStyle();
+            renderNode();
+        }
+
+        // 選択アクション
+        function handleChoice(label, next, result) {
+            stateHistory.push({ nodeId: currentNode, label: label });
+            if (result) {
+                renderResult(result);
+            } else {
+                currentNode = next;
+                renderNode();
+            }
+        }
+
+        // 質問の描画
+        function renderNode() {
+            const node = currentData.logic.nodes[currentNode];
+            
+            // ナビゲーションの制御（すべての質問で戻るボタン表示可能化）
+            ui.navFooter.classList.remove('hidden');
+            ui.btnBack.style.display = stateHistory.length > 0 ? 'flex' : 'none';
+
+            // 進捗バー
+            const step = stateHistory.length + 1;
+            ui.stepLabel.innerText = `Step ${step}`;
+            ui.progressBar.style.width = `${Math.min(step * 20, 90)}%`;
+            ui.breadcrumb.innerText = currentData.title;
+
+            ui.dynamicContent.innerHTML = `
+                <h2 class="text-2xl font-black text-slate-800 mb-6 leading-tight">${node.text}</h2>
+                <div id="ui-container" class="flex flex-col gap-3.5"></div>
+            `;
+            const uiContainer = document.getElementById('ui-container');
+
+            node.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "btn-card w-full bg-white border-2 border-slate-100 p-5 rounded-2xl text-left font-bold text-slate-700 flex justify-between items-center shadow-sm hover:border-blue-400 hover:bg-blue-50/30 transition-all";
+                btn.innerHTML = `<span>${opt.label}</span><span class="text-slate-300">→</span>`;
+                btn.onclick = () => handleChoice(opt.label, opt.next, opt.result);
+                uiContainer.appendChild(btn);
+            });
+        }
+
+        // 結果の描画
+        function renderResult(resKey) {
+            const res = currentData.logic.results[resKey];
+            
+            ui.progressBar.style.width = `100%`;
+            ui.stepLabel.innerText = "判定完了";
+            
+            // 下部ナビゲーションは表示したまま（要件：結果後も「1つ戻る」「トップに戻る」を利用可能にする）
+            ui.navFooter.classList.remove('hidden');
+            ui.btnBack.style.display = 'flex';
+
+            let bg = "bg-slate-50", border = "border-slate-200", icon = "ℹ️";
+            let mainLabel = "";
+
+            if (res.color === 'green') {
+                bg = "bg-emerald-50"; border = "border-emerald-500"; icon = "✅";
+            } else if (res.color === 'orange') {
+                bg = "bg-amber-50"; border = "border-amber-500"; icon = "⚠️";
+                mainLabel = `<div class="w-full py-3 px-4 rounded-xl text-white font-black text-center mb-5 shadow-md bg-orange-gradient animate-alert">⚠️ 即日での手続き完了はできません</div>`;
+            } else if (res.color === 'red') {
+                bg = "bg-rose-50"; border = "border-rose-500"; icon = "❌";
+                mainLabel = `<div class="w-full py-3 px-4 rounded-xl text-white font-black text-center mb-5 shadow-md bg-red-gradient animate-alert">⚠️ 即日での手続き完了はできません</div>`;
+            }
+
+            // カードのスタイル適用
+            ui.card.className = `${bg} border-4 ${border} rounded-[2rem] shadow-2xl p-7 min-h-[450px] flex flex-col animate-result`;
+
+            // アラートの優先描画 (alertフィールドが存在する場合)
+            let alertBox = '';
+            if (res.alert) {
+                alertBox = `
+                    <div class="w-full bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded-r-xl mb-6 shadow-sm animate-alert text-left">
+                        <p class="font-black text-yellow-800 flex items-center gap-1.5 mb-1">
+                            <span class="text-lg">⚠️</span> 職員への注意
+                        </p>
+                        <p class="text-sm text-yellow-900 font-bold leading-relaxed">${res.alert}</p>
+                    </div>
+                `;
+            }
+
+            // 外部リンクの厳密な出し分け
+            // マイナンバー関連（キーが res_m_ から始まる）の場合のみ公式FAQを表示
+            let extraLink = '';
+            if (currentKey === 'myna_inkan' && resKey.startsWith('res_m_')) {
+                extraLink = `
+                    <div class="mt-4 p-4 bg-white rounded-xl border border-slate-200 shadow-sm text-left">
+                        <p class="text-[10px] font-black text-slate-400 mb-2 uppercase">Official FAQ</p>
+                        <a href="https://www.kojinbango-card.go.jp/faq/?hl=ja-JP" target="_blank" class="text-blue-600 font-bold text-xs flex items-center gap-1 hover:underline">
+                            <span>手続きの詳細は公式FAQも参照してください</span>
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-width="3"></path></svg>
+                        </a>
+                    </div>
+                `;
+            } else if (res.color === 'orange' || res.color === 'red') {
+                // それ以外の業務でNGの場合は本庁確認のアナウンス
+                extraLink = `
+                    <div class="mt-4 p-4 bg-white rounded-xl border border-slate-200 shadow-sm text-center">
+                        <p class="text-xs font-bold text-slate-600">詳細は本庁担当課へ確認してください</p>
+                    </div>
+                `;
+            }
+
+            const msg = res.message.replace(/\n/g, '<br>');
+
+            ui.dynamicContent.innerHTML = `
+                ${mainLabel}
+                <div class="text-5xl mb-2 text-center">${icon}</div>
+                <div class="text-3xl font-black text-slate-800 mb-6 text-center">${res.title}</div>
+                ${alertBox}
+                <div class="bg-white/70 backdrop-blur-sm p-6 rounded-2xl border border-white shadow-inner text-sm leading-relaxed text-slate-700 mb-4 text-left">
+                    ${msg}
+                </div>
+                ${extraLink}
+                
+                <div class="mt-auto pt-6 flex flex-col gap-3">
+                    <button onclick="showTopMenu()" class="w-full bg-slate-800 text-white font-black py-4 rounded-xl shadow-xl active:scale-95 transition-all text-base flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                        新しい判定を始める
+                    </button>
+                </div>
+            `;
+        }
+
+        // 初期化
+        window.onload = showTopMenu;
+
+        // ==========================================
+        // ■ PWA: Service Worker 登録
+        // ==========================================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // sw.js は同階層に配置される想定です
+                navigator.serviceWorker.register('sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }).catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
