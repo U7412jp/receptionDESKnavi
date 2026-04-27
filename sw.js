@@ -1,6 +1,6 @@
-const CACHE_NAME = 'mynumber-navi-v2';
+const CACHE_NAME = 'mynumber-navi-v3';
 
-const ASSETS_TO_CACHE = [
+const ASSETS = [
   './',
   './index.html',
   './manifest.json',
@@ -11,9 +11,7 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
 });
 
@@ -25,8 +23,6 @@ self.addEventListener('activate', (event) => {
 // fetch
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });

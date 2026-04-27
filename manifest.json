@@ -3,6 +3,7 @@
   "short_name": "マイナ窓口判断ナビ",
   "description": "自治体窓口職員のためのマイナンバー業務判断支援ツール",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1e40af",
