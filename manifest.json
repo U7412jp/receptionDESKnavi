@@ -1,14 +1,19 @@
 {
-  "name": "自治体窓口ナビ",
-  "short_name": "窓口ナビ",
-  "description": "窓口業務の判定・案内サポートツール",
-  "start_url": "./index.html",
+  "name": "マイナンバー窓口判断支援アプリ",
+  "short_name": "マイナ窓口判断ナビ",
+  "description": "自治体窓口職員のためのマイナンバー業務判断支援ツール",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#007bff",
+  "theme_color": "#1e40af",
   "icons": [
     {
-      "src": "icon.png",
+      "src": "./icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon.png",
       "sizes": "512x512",
       "type": "image/png"
     }
